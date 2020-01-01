@@ -11,17 +11,46 @@ namespace MVVMUtilities
     public static class Extensions
     {
         public static void RedirectAnyChangesTo(
-            this INotifyPropertyChanged source, 
+            this INotifyPropertyChanged source,
             object sender,
-            Func<PropertyChangedEventHandler> target, 
+            Func<PropertyChangedEventHandler> target,
+            params string[] properties)
+        {
+            RedirectAnyChangesTo(source, p => target()?.Invoke(sender, new PropertyChangedEventArgs(p)), properties);
+        }
+        public static void RedirectAnyChangesTo(
+            this INotifyPropertyChanged source,
+            object sender,
+            Action<object, PropertyChangedEventArgs> onPropertyChanged,
+            params string[] properties)
+        {
+            RedirectAnyChangesTo(source, p => onPropertyChanged(sender, new PropertyChangedEventArgs(p)), properties);
+        }
+        public static void RedirectAnyChangesTo(
+            this INotifyPropertyChanged source,
+            Action<string> onPropertyChanged,
             params string[] properties)
         {
             source.PropertyChanged += (o, e) =>
             {
-                var t = target();
-                foreach (var property in properties.ToEmptyIfTrue(t == null))
+                foreach (var property in properties)
                 {
-                    t.Invoke(sender, new PropertyChangedEventArgs(property));
+                    onPropertyChanged.Invoke(property);
+                }
+            };
+        }
+
+        public static void WhenChanged(
+            this PropertyChangedEventHandler source,
+            Action<string> onPropertyChanged,
+            params string[] properties)
+        {
+            source += (o, e) =>
+            {
+                var property = properties.FindOrDefault(p => p == e.PropertyName);
+                if (property != null)
+                {
+                    onPropertyChanged.Invoke(property);
                 }
             };
         }

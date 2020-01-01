@@ -29,7 +29,7 @@ namespace MVVMUtilities.Types
         public bool IsNotBusy => !IsBusy;
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        public IDisposable BusyHolder
+        public IModeHolder<BusyObject> BusyMode
         {
             get
             {
@@ -40,7 +40,7 @@ namespace MVVMUtilities.Types
                     _notifier.Acquire();
                 }
 
-                return new DisposingAction(deactivate);
+                return new ModeHolder<BusyObject>(new DisposingAction(deactivate), this);
 
                 void deactivate()
                 {

@@ -15,10 +15,16 @@ namespace MVVMUtilities.Types
         {
             return new ValueBinder<object>(
                 tryViewToModel,
-                mv => binder.ModelToView((TModel)mv),
-                mv => binder.ValueRangeValidator((TModel)mv),
-                mv => (object)binder.CoerceBeforeShow((TModel)mv),
+                mv => binder.ModelToView(castToModel(mv)),
+                mv => binder.ValueRangeValidator(castToModel(mv)),
+                mv => (object)binder.CoerceBeforeShow(castToModel(mv)),
                 binder.Validator);
+
+            TModel castToModel(object mv)
+            {
+                return (TModel)Convert.ChangeType(mv, typeof(TModel));
+            }
+
 
             bool tryViewToModel(string serialized, out object modelValue)
             {
@@ -243,7 +249,7 @@ namespace MVVMUtilities.Types
 
         public void AssertValue()
         {
-            ModelValue = ModelValue;
+            updateValueFromModel();
         }
     }
 }

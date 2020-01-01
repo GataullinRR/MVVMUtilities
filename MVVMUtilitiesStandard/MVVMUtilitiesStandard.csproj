@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <AssemblyVersion>1.0.0.3</AssemblyVersion>
-    <FileVersion>1.0.0.3</FileVersion>
+    <AssemblyVersion>2019.12.29.606</AssemblyVersion>
+    <FileVersion>2019.12.29.606</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Utilities\UtilitiesStandard\UtilitiesStandard.csproj" />
+    <ProjectReference Include="..\..\Vectors\Vectors.csproj" />
   </ItemGroup>
 
 </Project>

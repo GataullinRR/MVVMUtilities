@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
@@ -9,6 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Utilities;
 using Utilities.Extensions;
+using Utilities.Types;
 
 namespace MVVMUtilities.Types
 {
@@ -39,11 +41,34 @@ namespace MVVMUtilities.Types
         }
     }
 
-    public class EnhancedObservableCollection<T> : ObservableCollection<T>
+    public interface ISlimEnhancedObservableCollection<T> : IList<T>, INotifyCollectionChanged, INotifyPropertyChanged
     {
-        readonly HoldersManager _suppressNotification = new HoldersManager();
-        readonly HoldersManager _ignoreItemPropertyChangedNotifications = new HoldersManager();
-        readonly HoldersManager _suppressItemPropertyChangedNotifications = new HoldersManager();
+        event EventHandler<ItemPropertyChangedEventArgs<T>> ItemPropertyChanged;
+
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        IDisposable EventSuppressingMode { get; }
+        /// <summary>
+        /// After holder is released the <see cref="ItemPropertyChanged"/> event will not be raised
+        /// </summary>
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        IDisposable ItemChangesEventIgnoringModeHolder { get; }
+        /// <summary>
+        /// After holder is released the <see cref="ItemPropertyChanged"/> event will be raised for all changed items which are still exist in the collection
+        /// </summary>
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        IDisposable ItemChangesEventSuppressingModeHolder { get; }
+    }
+
+    public interface IEnhancedObservableCollection<T> : ICollection<T>, IEnumerable<T>, IEnumerable, IList<T>, IReadOnlyCollection<T>, IReadOnlyList<T>, ICollection, IList, INotifyCollectionChanged, INotifyPropertyChanged, ISlimEnhancedObservableCollection<T>
+    {
+
+    }
+
+    public class EnhancedObservableCollection<T> : ObservableCollection<T>, IEnhancedObservableCollection<T>
+    {
+        readonly ModeManager _suppressNotification = new ModeManager();
+        readonly ModeManager _ignoreItemPropertyChangedNotifications = new ModeManager();
+        readonly ModeManager _suppressItemPropertyChangedNotifications = new ModeManager();
         readonly List<ItemPropertyChangedEventArgs<T>> _awaitingItemPropertyChangedEvents = new List<ItemPropertyChangedEventArgs<T>>();
 
         public event EventHandler<ItemPropertyChangedEventArgs<T>> ItemPropertyChanged;
@@ -52,7 +77,7 @@ namespace MVVMUtilities.Types
         public bool IsReadOnly { get; private set; }
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        public IDisposable EventSuppressingModeHolder => _suppressNotification.Holder;
+        public IDisposable EventSuppressingMode => _suppressNotification.Holder;
         /// <summary>
         /// After holder is released the <see cref="ItemPropertyChanged"/> event will not be raised
         /// </summary>
@@ -85,9 +110,9 @@ namespace MVVMUtilities.Types
             _options = options;
             collection?.ForEach(subscribeToPropertyChanged);
 
-            _suppressNotification.Unholded +=
+            _suppressNotification.Deactivated +=
                 () => OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
-            _suppressItemPropertyChangedNotifications.Unholded +=
+            _suppressItemPropertyChangedNotifications.Deactivated +=
                 () =>
                 {
                     foreach (var e in _awaitingItemPropertyChangedEvents)
@@ -105,15 +130,15 @@ namespace MVVMUtilities.Types
         {
             var eventArgs = new ItemPropertyChangedEventArgs<T>(e, (T)sender);
 
-            if (!_suppressItemPropertyChangedNotifications.IsHolding && !_ignoreItemPropertyChangedNotifications.IsHolding)
+            if (!_suppressItemPropertyChangedNotifications.IsActive && !_ignoreItemPropertyChangedNotifications.IsActive)
             {
                 ItemPropertyChanged?.Invoke(this, eventArgs);
             }
-            else if (_suppressItemPropertyChangedNotifications.IsHolding && !_ignoreItemPropertyChangedNotifications.IsHolding)
+            else if (_suppressItemPropertyChangedNotifications.IsActive && !_ignoreItemPropertyChangedNotifications.IsActive)
             {
                 _awaitingItemPropertyChangedEvents.Add(eventArgs);
             }
-            else if (_suppressItemPropertyChangedNotifications.IsHolding && _ignoreItemPropertyChangedNotifications.IsHolding)
+            else if (_suppressItemPropertyChangedNotifications.IsActive && _ignoreItemPropertyChangedNotifications.IsActive)
             {
                 throw new NotSupportedException("Setting ignoring and supressing mode simultaneously is not supported");
             }
@@ -125,7 +150,7 @@ namespace MVVMUtilities.Types
 
         protected override void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
         {
-            if (!_suppressNotification.IsHolding)
+            if (!_suppressNotification.IsActive)
             {
 
                 base.OnCollectionChanged(e);
@@ -139,7 +164,7 @@ namespace MVVMUtilities.Types
                 throw new ArgumentNullException("list");
             }
 
-            using (EventSuppressingModeHolder)
+            using (EventSuppressingMode)
             {
                 foreach (T item in list)
                 {
